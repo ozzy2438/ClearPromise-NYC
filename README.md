@@ -194,8 +194,8 @@ Weekends: -10% duration → Premium weekend → +$1.2M/year
 
 **Quick Demo (2 min setup):**
 ```bash
-git clone https://github.com/yourusername/PromiseWise-NYC.git
-cd PromiseWise-NYC
+git clone https://github.com/ozzy2438/ClearPromise-NYC.git
+cd ClearPromise-NYC
 pip install -r requirements.txt
 jupyter notebook notebooks/01_eda.ipynb  # 10K sample ready to go!
 ```
@@ -295,10 +295,10 @@ API latency: p50=15ms, p99=45ms
 
 ## 📞 Let's Connect!
 
-**Built by [Your Name]**  
-📧 Email: [your.email@example.com](mailto:your.email@example.com)  
-💼 LinkedIn: [linkedin.com/in/yourprofile](https://linkedin.com/in/yourprofile)  
-🐙 GitHub: [github.com/yourusername](https://github.com/yourusername)
+**Built by Osman Orka**  
+📧 Email: [osmanorka@gmail.com](mailto:osmanorka@gmail.com)  
+💼 LinkedIn: [linkedin.com/in/osmanorka](https://www.linkedin.com/in/osmanorka)  
+🐙 GitHub: [github.com/ozzy2438](https://github.com/ozzy2438)
 
 ---
 
