@@ -14,7 +14,10 @@
 - **Built With:** Python, Scikit-learn, Jupyter, Pandas, Random Forests
 
 <details>
-<summary><strong>📈 Read more - Detailed Analysis & Results</strong></summary>
+<summary>
+<h2>🔍 Click Here for Complete Analysis & Business Results 👇</h2>
+<p><em>💼 Full technical details, ROI calculations, model performance, and business recommendations</em></p>
+</summary>
 
 <br>
 
