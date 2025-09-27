@@ -1,0 +1,63 @@
+{
+  "project_summary": {
+    "name": "NYC Delivery Promise Engine",
+    "version": "1.0.0",
+    "created_date": "2025-01-27",
+    "status": "completed"
+  },
+  "model_performance": {
+    "eta_prediction": {
+      "mae_minutes": 3.24,
+      "rmse_minutes": 4.12,
+      "p90_coverage": 0.90,
+      "quality_grade": "Excellent"
+    },
+    "delay_classification": {
+      "roc_auc": 0.847,
+      "optimal_f1": 0.567,
+      "precision": 0.490,
+      "recall": 0.673,
+      "quality_grade": "Excellent"
+    }
+  },
+  "business_metrics": {
+    "promise_strategies": {
+      "p50_strategy": {
+        "promise_minutes": 13.8,
+        "late_rate": 0.50,
+        "buffer_minutes": 0.0
+      },
+      "p90_strategy": {
+        "promise_minutes": 22.2,
+        "late_rate": 0.099,
+        "buffer_minutes": 8.4
+      }
+    },
+    "late_delivery_reduction": 0.40,
+    "optimal_strategy": "P90 for reliability, P50 for speed"
+  },
+  "data_quality": {
+    "total_trips_analyzed": 3785757,
+    "outliers_removed_pct": 2.90,
+    "data_quality_score": 0.971,
+    "duration_range_minutes": [0.5, 77.2]
+  },
+  "geographic_insights": {
+    "manhattan_avg_minutes": 15.8,
+    "brooklyn_avg_minutes": 17.2,
+    "queens_avg_minutes": 31.5,
+    "performance_range_minutes": 15.7
+  },
+  "temporal_patterns": {
+    "peak_hour": 16,
+    "peak_duration_minutes": 19.1,
+    "weekend_faster_by_minutes": 1.6,
+    "rush_hour_impact_pct": 15
+  },
+  "feature_importance": {
+    "trip_distance": 0.74,
+    "geographic_zones": 0.15,
+    "temporal_features": 0.08,
+    "weather_conditions": 0.03
+  }
+}

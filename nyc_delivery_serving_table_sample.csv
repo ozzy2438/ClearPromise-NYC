@@ -1,0 +1,4 @@
+pickup_datetime,pickup_zone,dropoff_zone,pickup_borough,dropoff_borough,ETA_P50,ETA_P90,delay_flag,weather_wet,weather_hot,is_weekend,is_holiday
+2025-07-01 08:00:00,Midtown Center,Upper West Side,Manhattan,Manhattan,12.5,18.7,0,False,True,False,False
+2025-07-01 12:30:00,JFK Airport,Manhattan,Queens,Manhattan,45.2,61.8,1,True,False,False,False
+2025-07-01 18:15:00,Upper East Side,Central Park,Manhattan,Manhattan,8.3,14.1,0,False,True,False,False

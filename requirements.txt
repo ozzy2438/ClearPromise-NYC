@@ -1,0 +1,18 @@
+# Core data science packages
+pandas==2.1.1
+numpy==1.24.3
+matplotlib==3.7.2
+seaborn==0.12.2
+scipy==1.11.4
+scikit-learn==1.7.0
+
+# Jupyter notebook environment
+jupyter==1.0.0
+ipykernel==6.29.5
+notebook==7.0.8
+
+# Optional: Enhanced visualizations
+plotly==5.17.0
+
+# Development and testing
+pytest==8.0.0
