@@ -15,8 +15,10 @@
 
 <details>
 <summary>
-<h2>🔍 Click Here for Complete Analysis & Business Results 👇</h2>
-<p><em>💼 Full technical details, ROI calculations, model performance, and business recommendations</em></p>
+<h2>🔍 <kbd>Click Here for Complete Analysis & Business Results</kbd> 👇</h2>
+<blockquote>
+<p>💼 <strong>Full technical details, ROI calculations, model performance, and business recommendations</strong></p>
+</blockquote>
 </summary>
 
 <br>
