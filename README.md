@@ -15,7 +15,8 @@
 
 <details>
 <summary>
-<h2>🔍 <kbd>Click Here for Complete Analysis & Business Results</kbd> 👇</h2>
+<h2>🔍 <a href="#detailed-analysis">Click Here for Complete Analysis & Business Results</a> 👇</h2>
+<h3>🔵 <img src="https://img.shields.io/badge/📊_FULL_ANALYSIS-Click_to_Expand-blue?style=for-the-badge&logo=analytics" alt="Full Analysis"></h3>
 <blockquote>
 <p>💼 <strong>Full technical details, ROI calculations, model performance, and business recommendations</strong></p>
 </blockquote>
