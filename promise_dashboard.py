@@ -7,8 +7,18 @@ from plotly.subplots import make_subplots
 import seaborn as sns
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
+import os
 import warnings
 warnings.filterwarnings('ignore')
+
+# NYC Borough coordinates for map visualization
+NYC_BOROUGHS = {
+    'Manhattan': {'lat': 40.7831, 'lon': -73.9712, 'color': '#FF6B6B'},
+    'Brooklyn': {'lat': 40.6892, 'lon': -73.9442, 'color': '#4ECDC4'}, 
+    'Queens': {'lat': 40.7282, 'lon': -73.7949, 'color': '#45B7D1'},
+    'Bronx': {'lat': 40.8448, 'lon': -73.8648, 'color': '#96CEB4'},
+    'Staten Island': {'lat': 40.5795, 'lon': -74.1502, 'color': '#FFEAA7'}
+}
 
 # Page configuration for 16:9 aspect ratio
 st.set_page_config(
@@ -61,16 +71,37 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 @st.cache_data
-def load_data():
+def load_data(use_full_data=False):
     """Load and preprocess all data files"""
     try:
-        # Load trip data
-        trips = pd.read_csv('data/sample/yellow_tripdata_sample_10k.csv')
+        if use_full_data:
+            # Load full parquet files (3.8M+ trips)
+            st.info("🚀 Loading FULL dataset (3.8M+ trips) - This may take a moment...")
+            
+            trips_list = []
+            for month in ['05', '06', '07']:
+                parquet_file = f'yellow_tripdata_2025-{month}.parquet'
+                if os.path.exists(parquet_file):
+                    month_data = pd.read_parquet(parquet_file)
+                    trips_list.append(month_data)
+                    st.success(f"✅ Loaded {len(month_data):,} trips from 2025-{month}")
+            
+            if trips_list:
+                trips = pd.concat(trips_list, ignore_index=True)
+                st.success(f"🎯 **TOTAL: {len(trips):,} trips loaded!**")
+            else:
+                st.warning("⚠️ No parquet files found, falling back to sample data")
+                use_full_data = False
+        
+        if not use_full_data:
+            # Load sample data (fast demo)
+            trips = pd.read_csv('data/sample/yellow_tripdata_sample_10k.csv')
+            st.info(f"📊 Demo mode: {len(trips):,} sample trips loaded")
         
         # Load zone lookup
         zones = pd.read_csv('data/sample/taxi_zone_lookup.csv')
         
-        # Load weather data
+        # Load weather data  
         weather = pd.read_csv('data/sample/nyc_weather_sample.csv')
         
         # Load holidays
@@ -190,7 +221,7 @@ def calculate_promise_metrics(df, promise_percentile=90):
 
 def create_trade_off_curve(df):
     """Create promise percentile vs late rate trade-off curve"""
-    percentiles = range(50, 96, 5)
+    percentiles = list(range(50, 96, 5))  # Convert to list
     late_rates = []
     
     for p in percentiles:
@@ -321,24 +352,127 @@ def create_corridor_top10(df, selected_borough=None, selected_hour=None):
     
     return fig
 
+def create_nyc_delivery_map(df):
+    """Create interactive NYC delivery heatmap - THE WOW FACTOR!"""
+    
+    # Calculate borough-level metrics
+    borough_stats = df.groupby('pickup_borough').agg({
+        'duration_minutes': ['mean', 'count'],
+        'trip_distance': 'mean'
+    }).reset_index()
+    
+    borough_stats.columns = ['borough', 'avg_duration', 'trip_count', 'avg_distance']
+    
+    # Create map data
+    map_data = []
+    for borough in borough_stats['borough'].unique():
+        if borough in NYC_BOROUGHS:
+            stats = borough_stats[borough_stats['borough'] == borough].iloc[0]
+            
+            map_data.append({
+                'borough': borough,
+                'lat': NYC_BOROUGHS[borough]['lat'],
+                'lon': NYC_BOROUGHS[borough]['lon'],
+                'avg_duration': stats['avg_duration'],
+                'trip_count': stats['trip_count'],
+                'avg_distance': stats['avg_distance'],
+                'color': NYC_BOROUGHS[borough]['color']
+            })
+    
+    map_df = pd.DataFrame(map_data)
+    
+    # Create scatter mapbox
+    fig = go.Figure()
+    
+    # Add borough circles with size = trip count, color = avg duration
+    fig.add_trace(go.Scattermapbox(
+        lat=map_df['lat'],
+        lon=map_df['lon'],
+        mode='markers',
+        marker=dict(
+            size=np.sqrt(map_df['trip_count']) / 3,  # Scale circle size
+            color=map_df['avg_duration'],
+            colorscale='RdYlBu_r',
+            showscale=True,
+            colorbar=dict(title="Avg Duration (min)", x=1.02),
+            sizemode='diameter',
+            opacity=0.8,
+            line=dict(width=2, color='white')
+        ),
+        text=[f"<b>{row['borough']}</b><br>" +
+              f"Avg Duration: {row['avg_duration']:.1f} min<br>" +
+              f"Trip Count: {row['trip_count']:,}<br>" +
+              f"Avg Distance: {row['avg_distance']:.1f} mi"
+              for _, row in map_df.iterrows()],
+        hovertemplate='%{text}<extra></extra>',
+        name='Pickup Zones'
+    ))
+    
+    # Add route flows between top borough pairs
+    route_flows = df.groupby(['pickup_borough', 'dropoff_borough']).agg({
+        'duration_minutes': 'mean',
+        'PULocationID': 'count'
+    }).reset_index()
+    route_flows.columns = ['pickup', 'dropoff', 'avg_duration', 'trip_count']
+    route_flows = route_flows[route_flows['trip_count'] >= 50].nlargest(8, 'trip_count')
+    
+    # Draw flow lines
+    for _, route in route_flows.iterrows():
+        if route['pickup'] in NYC_BOROUGHS and route['dropoff'] in NYC_BOROUGHS:
+            pickup_coords = NYC_BOROUGHS[route['pickup']]
+            dropoff_coords = NYC_BOROUGHS[route['dropoff']]
+            
+            # Line thickness based on trip count
+            line_width = max(2, min(8, route['trip_count'] / 100))
+            
+            fig.add_trace(go.Scattermapbox(
+                lat=[pickup_coords['lat'], dropoff_coords['lat']],
+                lon=[pickup_coords['lon'], dropoff_coords['lon']],
+                mode='lines',
+                line=dict(width=line_width, color='rgba(247, 201, 72, 0.6)'),
+                hovertemplate=f"<b>{route['pickup']} → {route['dropoff']}</b><br>" +
+                             f"Trips: {route['trip_count']:,}<br>" +
+                             f"Avg Duration: {route['avg_duration']:.1f} min<extra></extra>",
+                name=f"{route['pickup']} → {route['dropoff']}"
+            ))
+    
+    # Map layout
+    fig.update_layout(
+        title="🗺️ NYC Real-Time Delivery Heatmap & Flow Analysis",
+        mapbox=dict(
+            style="open-street-map",
+            center=dict(lat=40.7505, lon=-73.9934),  # NYC center
+            zoom=10.5
+        ),
+        height=500,
+        margin=dict(l=0, r=0, t=40, b=0),
+        showlegend=False
+    )
+    
+    return fig
+
 # Main app
 def main():
     # Header
     st.markdown("<h1>🚚 PromiseWise NYC</h1>", unsafe_allow_html=True)
     st.markdown('<p class="subtitle">Weather-aware ETA & Delay Risk Prediction Engine</p>', unsafe_allow_html=True)
     
+    # Sidebar filters (must be before data loading)
+    st.sidebar.markdown("## 🎛️ Control Panel")
+    
+    # Data source toggle
+    st.sidebar.markdown("### 📊 Data Source")
+    use_full_data = st.sidebar.checkbox("🚀 Use FULL dataset (3.8M+ trips)", help="⚠️ May take 30-60s to load")
+    
     # Load data
     with st.spinner("Loading data..."):
-        trips, zones, weather, holidays = load_data()
+        trips, zones, weather, holidays = load_data(use_full_data)
         
         if trips is None:
             st.error("Failed to load data. Please check file paths.")
             return
         
         df = preprocess_data(trips, zones, weather, holidays)
-    
-    # Sidebar filters
-    st.sidebar.markdown("## 🎛️ Control Panel")
     
     # Month filter
     available_months = sorted(df['month_name'].dropna().unique())
@@ -404,6 +538,16 @@ def main():
             <p>Target: 90%</p>
         </div>
         """, unsafe_allow_html=True)
+    
+    # Interactive NYC Map (FULL WIDTH - WOW FACTOR!)
+    st.markdown("## 🗺️ Live NYC Delivery Intelligence Map")
+    
+    try:
+        nyc_map = create_nyc_delivery_map(filtered_df)
+        st.plotly_chart(nyc_map, use_container_width=True)
+        st.success("🎯 **Circle size** = Trip volume | **Color intensity** = Avg duration | **Lines** = High-traffic routes")
+    except Exception as e:
+        st.error(f"Error creating NYC map: {e}")
     
     # Charts Grid (2x2)
     st.markdown("## 📈 Interactive Analysis Dashboard")
