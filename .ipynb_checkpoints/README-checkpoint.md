@@ -12,7 +12,6 @@
 - **Goal:** Predict delivery ETAs & delay risk using public NYC trip + weather data
 - **Impact:** 40% reduction in late deliveries, sub-5min ETA accuracy
 - **Built With:** Python, Scikit-learn, Jupyter, Pandas, Random Forests
-- **🎮 Live Demo:** Interactive Streamlit dashboard with real-time analytics
 
 <details>
 <summary>
@@ -193,17 +192,6 @@ Weekends: -10% duration → Premium weekend → +$1.2M/year
 ---
 
 ## ⚡ Getting Started
-
-**🎮 Interactive Dashboard (Recommended):**
-```bash
-git clone https://github.com/ozzy2438/ClearPromise-NYC.git
-cd ClearPromise-NYC
-pip install -r requirements.txt
-streamlit run promise_dashboard.py
-```
-> 📱 **Live Demo**: Interactive dashboard with real-time filtering, business KPIs, and trade-off analysis
-
-**Original Getting Started:**
 
 ### 📁 **Data Access** 
 **Complete datasets available here:** [NYC Delivery Data - Google Drive](https://drive.google.com/drive/folders/1DBSlaBUUjCm0Wk-xvq6oArMjE21QCb8w?usp=drive_link)
