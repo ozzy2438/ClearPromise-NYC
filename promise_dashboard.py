@@ -390,14 +390,25 @@ def create_nyc_delivery_map(df):
         lon=map_df['lon'],
         mode='markers',
         marker=dict(
-            size=np.sqrt(map_df['trip_count']) / 3,  # Scale circle size
+            size=np.sqrt(map_df['trip_count']) / 2,  # Better scaling
             color=map_df['avg_duration'],
             colorscale='RdYlBu_r',
             showscale=True,
-            colorbar=dict(title="Avg Duration (min)", x=1.02),
+            colorbar=dict(
+                title="Avg Duration (min)", 
+                x=1.02,
+                thickness=15,
+                len=0.7
+            ),
             sizemode='diameter',
-            opacity=0.8,
-            line=dict(width=2, color='white')
+            sizemin=15,  # Minimum marker size
+            sizeref=2,   # Size reference scaling
+            opacity=0.85,
+            symbol='circle',  # Explicit circle symbol
+            line=dict(width=3, color='white'),
+            allowoverlap=True,  # Show all markers even if overlapping
+            cmin=map_df['avg_duration'].min(),
+            cmax=map_df['avg_duration'].max()
         ),
         text=[f"<b>{row['borough']}</b><br>" +
               f"Avg Duration: {row['avg_duration']:.1f} min<br>" +
@@ -425,28 +436,47 @@ def create_nyc_delivery_map(df):
             # Line thickness based on trip count
             line_width = max(2, min(8, route['trip_count'] / 100))
             
+            # Add route flow with enhanced styling
             fig.add_trace(go.Scattermapbox(
                 lat=[pickup_coords['lat'], dropoff_coords['lat']],
                 lon=[pickup_coords['lon'], dropoff_coords['lon']],
                 mode='lines',
-                line=dict(width=line_width, color='rgba(247, 201, 72, 0.6)'),
+                line=dict(
+                    width=line_width, 
+                    color=f'rgba(247, 201, 72, {min(0.9, route["trip_count"]/1000)})'  # Dynamic opacity
+                ),
                 hovertemplate=f"<b>{route['pickup']} → {route['dropoff']}</b><br>" +
                              f"Trips: {route['trip_count']:,}<br>" +
-                             f"Avg Duration: {route['avg_duration']:.1f} min<extra></extra>",
-                name=f"{route['pickup']} → {route['dropoff']}"
+                             f"Avg Duration: {route['avg_duration']:.1f} min<br>" +
+                             f"<i>Click to filter dashboard</i><extra></extra>",
+                name=f"{route['pickup']} → {route['dropoff']}",
+                showlegend=False  # Clean legend
             ))
     
-    # Map layout
+    # Enhanced map layout  
     fig.update_layout(
-        title="🗺️ NYC Real-Time Delivery Heatmap & Flow Analysis",
+        title={
+            'text': "🗺️ NYC Real-Time Delivery Intelligence Map",
+            'x': 0.5,
+            'xanchor': 'center',
+            'font': {'size': 18, 'color': '#2c3e50'}
+        },
         mapbox=dict(
             style="open-street-map",
             center=dict(lat=40.7505, lon=-73.9934),  # NYC center
-            zoom=10.5
+            zoom=10.8,  # Slightly closer zoom
+            bearing=0,
+            pitch=0
         ),
-        height=500,
-        margin=dict(l=0, r=0, t=40, b=0),
-        showlegend=False
+        height=550,  # Slightly taller
+        margin=dict(l=0, r=50, t=50, b=0),  # Space for colorbar
+        showlegend=False,
+        font=dict(family="Arial, sans-serif"),
+        hoverlabel=dict(
+            bgcolor="white",
+            font_size=12,
+            font_family="Arial"
+        )
     )
     
     return fig
@@ -545,7 +575,35 @@ def main():
     try:
         nyc_map = create_nyc_delivery_map(filtered_df)
         st.plotly_chart(nyc_map, use_container_width=True)
-        st.success("🎯 **Circle size** = Trip volume | **Color intensity** = Avg duration | **Lines** = High-traffic routes")
+        
+        # Enhanced map legend with professional styling
+        st.markdown("""
+        <div style="background: linear-gradient(90deg, #f8f9fa, #e9ecef); padding: 15px; border-radius: 10px; border-left: 4px solid #F7C948; margin: 10px 0;">
+            <div style="display: flex; justify-content: space-around; flex-wrap: wrap;">
+                <div style="text-align: center; margin: 5px;">
+                    <span style="font-size: 20px;">🔵</span><br>
+                    <strong>Circle Size</strong><br>
+                    <small>Trip Volume</small>
+                </div>
+                <div style="text-align: center; margin: 5px;">
+                    <span style="font-size: 20px;">🌡️</span><br>
+                    <strong>Color</strong><br>
+                    <small>Avg Duration</small>
+                </div>
+                <div style="text-align: center; margin: 5px;">
+                    <span style="font-size: 20px;">📈</span><br>
+                    <strong>Flow Lines</strong><br>
+                    <small>High-Traffic Routes</small>
+                </div>
+                <div style="text-align: center; margin: 5px;">
+                    <span style="font-size: 20px;">🎯</span><br>
+                    <strong>Interactive</strong><br>
+                    <small>Hover for Details</small>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
     except Exception as e:
         st.error(f"Error creating NYC map: {e}")
     
