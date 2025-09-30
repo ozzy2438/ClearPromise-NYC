@@ -18,9 +18,11 @@
 
 ### Watch the dashboard in action: 2D maps, 3D cityscape, and live stream simulation
 
-[![NYC Promise System Demo](https://img.shields.io/badge/▶️_WATCH_DEMO-FF4B4B?style=for-the-badge&logo=canva&logoColor=white)](https://www.canva.com/design/DAG0b-1TEDc/O6ENow3ko_m4B1VLn2vEog/watch)
+<a href="https://www.canva.com/design/DAG0b-1TEDc/O6ENow3ko_m4B1VLn2vEog/watch" target="_blank">
+  <img src="assets/demo.gif" alt="NYC Promise System Demo" width="100%" style="max-width: 1000px; cursor: pointer; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
+</a>
 
-![Dashboard Preview](assets/demo.gif)
+*👆 Click the video above to watch with sound on Canva*
 
 *Interactive 3D visualization showing how we reduced late deliveries by 30-40%*
 
