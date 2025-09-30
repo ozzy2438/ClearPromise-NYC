@@ -499,10 +499,20 @@ Real-time metrics updated based on filters:
    - **Manhattan**: 15.8 min avg duration (fastest)
    - **Implication**: Need borough-specific promise strategies
 
+<div align="center">
+  <img src="https://github.com/ozzy2438/ClearPromise-NYC/blob/main/IMAGES/Image%2030-9-2025%20at%206.10%E2%80%AFPM.jpg?raw=true" alt="Borough Performance Analysis" width="80%" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+  <p><i>Borough-level trip duration and volume comparison</i></p>
+</div>
+
 2. **Peak Hour Patterns**
    - **4-6 PM**: +20% duration increase (rush hour)
    - **12-5 AM**: -18% duration decrease (night)
    - **Opportunity**: Dynamic pricing and staffing
+
+<div align="center">
+  <img src="https://github.com/ozzy2438/ClearPromise-NYC/blob/main/IMAGES/Image%2030-9-2025%20at%206.10%E2%80%AFPM%20(1).jpg?raw=true" alt="Hourly Traffic Patterns" width="80%" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+  <p><i>Hour-by-hour trip volume showing peak traffic periods</i></p>
+</div>
 
 3. **Weather Impact**
    - **Wet Days**: +3.5% duration increase
@@ -519,6 +529,11 @@ Real-time metrics updated based on filters:
    - **P90 Promises (32 min)**: 10% late rate → Slow but reliable
    - **P75 Optimal (23 min)**: 25% late rate → Best balance
 
+<div align="center">
+  <img src="https://github.com/ozzy2438/ClearPromise-NYC/blob/main/IMAGES/Image%2030-9-2025%20at%206.09%E2%80%AFPM.jpg?raw=true" alt="Promise Curve Analysis" width="85%" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+  <p><i>Promise Curve: Late arrival rate vs. percentile — optimizing the speed/reliability trade-off</i></p>
+</div>
+
 ### 📈 Quantified Business Metrics
 
 | Metric | Value | Impact |
@@ -528,6 +543,11 @@ Real-time metrics updated based on filters:
 | **Trip Volume (3 months)** | 3.8M+ | Enterprise-scale |
 | **Data Retention** | 99.2% | High quality |
 | **Dashboard Load Time** | <2 seconds | Fast UX |
+
+<div align="center">
+  <img src="https://github.com/ozzy2438/ClearPromise-NYC/blob/main/IMAGES/Image%2030-9-2025%20at%206.10%E2%80%AFPM-1.jpg?raw=true" alt="Data Quality and Coverage Metrics" width="75%" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+  <p><i>Comprehensive data analysis: zone coverage, trip distribution, and quality metrics</i></p>
+</div>
 
 ---
 
