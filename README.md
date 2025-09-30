@@ -19,7 +19,7 @@
 ### Watch the dashboard in action: 2D maps, 3D cityscape, and live stream simulation
 
 <a href="https://www.canva.com/design/DAG0b-1TEDc/O6ENow3ko_m4B1VLn2vEog/watch" target="_blank">
-  <img src="assets/demo.gif" alt="NYC Promise System Demo" width="100%" style="max-width: 1000px; cursor: pointer; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
+  <img src="https://github.com/ozzy2438/ClearPromise-NYC/blob/main/assets/demo.gif?raw=true" alt="NYC Promise System Demo" width="100%" style="max-width: 1000px; cursor: pointer; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
 </a>
 
 *👆 Click the GIF above to watch the full 60-second video with sound on Canva*
@@ -82,7 +82,7 @@ I built an end-to-end **Delivery Promise Analytics System** that transformed how
   - **Business Impact**: Enables proactive customer notifications
 
 <div align="center">
-  <img src="assets/Image 30-9-2025 at 6.17 PM.jpg" alt="ETA Prediction Model Results" width="90%" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+  <img src="https://github.com/ozzy2438/ClearPromise-NYC/blob/main/IMAGES/Image%2030-9-2025%20at%206.17%E2%80%AFPM.jpg?raw=true" alt="ETA Prediction Model Results" width="90%" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
   <p><i>ETA Regression Results: MAE 3.90 min, P90 Coverage 90.0%</i></p>
 </div>
 
@@ -103,7 +103,7 @@ I built an end-to-end **Delivery Promise Analytics System** that transformed how
 - **User Experience**: <2 second load time, intuitive filters for hour/borough/weather
 
 <div align="center">
-  <img src="assets/Image 30-9-2025 at 6.16 PM.jpg" alt="3D Cityscape Visualization" width="95%" style="border-radius: 10px; box-shadow: 0 6px 16px rgba(0,0,0,0.25);">
+  <img src="https://github.com/ozzy2438/ClearPromise-NYC/blob/main/IMAGES/Image%2030-9-2025%20at%206.16%E2%80%AFPM.jpg?raw=true" alt="3D Cityscape Visualization" width="95%" style="border-radius: 10px; box-shadow: 0 6px 16px rgba(0,0,0,0.25);">
   <p><i>3D Cityscape: Building heights represent trip volume, colors indicate late-arrival risk</i></p>
 </div>
 
@@ -134,7 +134,7 @@ I built an end-to-end **Delivery Promise Analytics System** that transformed how
    - **Expected Impact**: 30% fewer late deliveries in outer boroughs
 
 <div align="center">
-  <img src="assets/Image 30-9-2025 at 6.12 PM (1).jpg" alt="Borough Performance Comparison" width="85%" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+  <img src="https://github.com/ozzy2438/ClearPromise-NYC/blob/main/IMAGES/Image%2030-9-2025%20at%206.12%E2%80%AFPM%20(1).jpg?raw=true" alt="Borough Performance Comparison" width="85%" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
   <p><i>Borough Comparison: Trip volume and late rates across NYC</i></p>
 </div>
 
@@ -451,7 +451,7 @@ Real-time metrics updated based on filters:
   - ✅ Normal: Performance within range
 
 <div align="center">
-  <img src="assets/Image 30-9-2025 at 6.16 PM-1.jpg" alt="Live Stream Real-Time Monitor" width="95%" style="border-radius: 10px; box-shadow: 0 6px 16px rgba(0,0,0,0.25);">
+  <img src="https://github.com/ozzy2438/ClearPromise-NYC/blob/main/IMAGES/Image%2030-9-2025%20at%206.16%E2%80%AFPM-1.jpg?raw=true" alt="Live Stream Real-Time Monitor" width="95%" style="border-radius: 10px; box-shadow: 0 6px 16px rgba(0,0,0,0.25);">
   <p><i>Live Stream: Real-time monitoring with flying camera and pulsing buildings</i></p>
 </div>
 
