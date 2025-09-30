@@ -1,7 +1,9 @@
-# 🚕 NYC Promise System - Portfolio Project
+# 🚕 NYC Promise System - E-Commerce Delivery Simulator
 
-> **End-to-End Data Analytics Solution:**
-> **From raw NYC taxi data to interactive 3D visualization — combining Python analytics, MS SQL data warehousing, and Streamlit business intelligence dashboard.**
+> **Production-Grade Delivery Promise Engine:**
+> **Simulating real-world e-commerce delivery optimization using NYC taxi data as a proxy — from data engineering to interactive 3D business intelligence dashboard.**
+>
+> *Demonstrates transferable skills for DoorDash, Uber Eats, Amazon Prime delivery systems*
 
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/)
 [![SQL Server](https://img.shields.io/badge/MS_SQL_Server-2019%2B-red.svg)](https://www.microsoft.com/sql-server)
@@ -27,17 +29,33 @@
 
 ## 🎯 Project Overview
 
-This project demonstrates a complete data analytics pipeline for NYC taxi trip analysis, focusing on **late-arrival risk prediction** and **delivery promise optimization**. The solution showcases:
+This project **simulates an e-commerce delivery "Promise Engine"** by leveraging public NYC taxi data as a proxy for real-world delivery operations. Rather than a simple taxi trip analysis (common on Kaggle), this demonstrates how to build a **production-grade delivery time prediction system** that balances customer satisfaction with operational reliability.
 
-- **📊 Data Analysis**: Advanced exploratory analysis on 3.8M+ NYC taxi trips
-- **🗄️ Data Warehousing**: Star schema implementation in MS SQL Server
-- **📈 Business Intelligence**: Interactive 3D visualization dashboard with real-time metrics
-- **🔍 Geospatial Analysis**: Borough-level performance tracking with interactive maps
+**Why This Approach?**
+- 🎯 **Business-Focused**: Solves a real e-commerce problem (delivery promises) using available data
+- 🚀 **Transferable Skills**: Same techniques apply to Uber Eats, DoorDash, Amazon Prime, etc.
+- 📊 **End-to-End Pipeline**: From raw data → analysis → database → interactive dashboard
+- 💼 **Portfolio Differentiator**: Not just analysis, but a complete delivery optimization system
 
-**Business Impact:**
-- Identify high-risk pickup zones and corridors
-- Optimize delivery promises based on historical patterns
-- Enable data-driven decisions for operations teams
+**What Makes This Unique:**
+- Uses NYC taxi trips as a **stand-in for delivery routes** (May-July 2025, 3.8M+ trips)
+- Integrates **multi-source data** (zones, weather, calendar) like real delivery systems
+- Implements **star schema data warehouse** for enterprise-scale analytics
+- Delivers **interactive 3D dashboard** for operations teams to explore risk patterns
+- Focuses on **business outcomes**: promise optimization, zone-level risk, corridor analysis
+
+**The Solution Showcases:**
+- **📊 Data Engineering**: ETL pipeline processing 3.8M+ records with multi-source integration
+- **🗄️ Data Warehousing**: Star schema in MS SQL Server optimized for fast queries
+- **📈 Business Intelligence**: Interactive Streamlit dashboard with real-time 3D visualization
+- **🔍 Predictive Analytics**: ETA prediction and delay risk modeling
+- **🎯 Business Strategy**: Promise percentile optimization (P50 vs P75 vs P90)
+
+**Real-World Impact:**
+- Identify high-risk pickup zones before they cause late deliveries
+- Optimize delivery promises based on time-of-day, weather, and geography
+- Enable operations teams to make data-driven routing decisions
+- Simulate "what-if" scenarios for different promise strategies
 
 ---
 
@@ -553,16 +571,16 @@ jupyter notebook promisewise.ipynb
 
 ## 🏆 Project Highlights
 
-✅ **Full-Stack Data Pipeline**: Jupyter → SQL → Streamlit
-✅ **3.8M+ Records Processed**: Enterprise-scale data handling
-✅ **Interactive 3D Visualization**: PyDeck + Folium integration
-✅ **Star Schema Data Warehouse**: Optimized for analytics
-✅ **Production-Ready Dashboard**: <2s load time, real-time updates
-✅ **Business Impact Focus**: Actionable insights for operations teams
+✅ **E-Commerce Problem Simulation**: Not just taxi analysis — real delivery optimization use case
+✅ **Transferable to Real Companies**: Same approach used by DoorDash, Uber Eats, Amazon
+✅ **Full-Stack Data Pipeline**: Jupyter (analysis) → SQL (warehouse) → Streamlit (dashboard)
+✅ **Enterprise-Scale Data**: 3.8M+ records, multi-source integration, optimized queries
+✅ **Interactive 3D Visualization**: Live streaming cityscape with flying camera animation
+✅ **Business-Driven Insights**: Promise optimization, zone risk heatmaps, corridor analysis
 
 ---
 
-*Keywords: Data Analytics, Business Intelligence, Python, SQL Server, Streamlit, Geospatial Analysis, Data Visualization, ETL Pipeline, Dashboard Development, Portfolio Project*
+*Keywords: E-Commerce Analytics, Delivery Optimization, Promise Engine, Data Engineering, Business Intelligence, Python, SQL Server, Streamlit, Geospatial Analysis, 3D Visualization, ETL Pipeline, Star Schema, Predictive Analytics, Operations Research, Portfolio Project*
 
 ---
 
