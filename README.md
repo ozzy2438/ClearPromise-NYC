@@ -12,6 +12,22 @@
 
 ---
 
+## 🎥 60-Second Interactive Demo
+
+<div align="center">
+
+### Watch the dashboard in action: 2D maps, 3D cityscape, and live stream simulation
+
+[![NYC Promise System Demo](https://img.youtube.com/vi/YOUR_VIDEO_ID/maxresdefault.jpg)](https://www.youtube.com/watch?v=YOUR_VIDEO_ID)
+
+*Click to watch: Interactive 3D visualization showing how we reduced late deliveries by 30-40%*
+
+**Features shown:** 2D Atlas • 3D Cityscape • Live Stream • Promise Optimization
+
+</div>
+
+---
+
 ## 📑 Table of Contents
 - [Project Overview](#-project-overview)
 - [Data Sources](#-data-sources)
