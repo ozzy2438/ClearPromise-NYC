@@ -22,6 +22,10 @@
   <img src="https://github.com/ozzy2438/ClearPromise-NYC/blob/main/assets/demo.gif?raw=true" alt="NYC Promise System Demo" width="100%" style="max-width: 1000px; cursor: pointer; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
 </a>
 
+
+https://github.com/user-attachments/assets/0055998c-3024-4b8b-8dee-f1b1f837d838
+
+
 *👆 Click the GIF above to watch the full 60-second video with sound on Canva*
 
 **Features shown:** 2D Atlas • 3D Cityscape • Live Stream • Promise Optimization
