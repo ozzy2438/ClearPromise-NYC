@@ -22,11 +22,11 @@
   <img src="assets/demo.gif" alt="NYC Promise System Demo" width="100%" style="max-width: 1000px; cursor: pointer; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
 </a>
 
-*👆 Click the video above to watch with sound on Canva*
-
-*Interactive 3D visualization showing how we reduced late deliveries by 30-40%*
+*👆 Click the GIF above to watch the full 60-second video with sound on Canva*
 
 **Features shown:** 2D Atlas • 3D Cityscape • Live Stream • Promise Optimization
+
+Interactive 3D visualization showing how we reduced late deliveries by 30-40%
 
 </div>
 
@@ -81,6 +81,11 @@ I built an end-to-end **Delivery Promise Analytics System** that transformed how
   - **Result**: 84.7% ROC-AUC, 84% precision
   - **Business Impact**: Enables proactive customer notifications
 
+<div align="center">
+  <img src="assets/Image 30-9-2025 at 6.17 PM.jpg" alt="ETA Prediction Model Results" width="90%" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+  <p><i>ETA Regression Results: MAE 3.90 min, P90 Coverage 90.0%</i></p>
+</div>
+
 **3. Data Warehouse Architecture** *(Technical Implementation)*
 - Designed **Star Schema** in **MS SQL Server** with:
   - `fact_trip_agg`: Pre-aggregated hourly metrics (median ETA, late rate, trip volume)
@@ -96,6 +101,11 @@ I built an end-to-end **Delivery Promise Analytics System** that transformed how
   - **3D Cityscape**: PyDeck visualization where building height = trip volume, color = delay risk
   - **Live Stream**: Real-time simulation with auto-refresh for monitoring operations
 - **User Experience**: <2 second load time, intuitive filters for hour/borough/weather
+
+<div align="center">
+  <img src="assets/Image 30-9-2025 at 6.16 PM.jpg" alt="3D Cityscape Visualization" width="95%" style="border-radius: 10px; box-shadow: 0 6px 16px rgba(0,0,0,0.25);">
+  <p><i>3D Cityscape: Building heights represent trip volume, colors indicate late-arrival risk</i></p>
+</div>
 
 ### Results & Business Impact
 
@@ -122,6 +132,11 @@ I built an end-to-end **Delivery Promise Analytics System** that transformed how
    - **Finding**: Queens takes 2X longer than Manhattan (31.5 min vs 15.8 min)
    - **Recommendation**: Implement borough-specific delivery promises
    - **Expected Impact**: 30% fewer late deliveries in outer boroughs
+
+<div align="center">
+  <img src="assets/Image 30-9-2025 at 6.12 PM (1).jpg" alt="Borough Performance Comparison" width="85%" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+  <p><i>Borough Comparison: Trip volume and late rates across NYC</i></p>
+</div>
 
 2. **⏰ Time-Based Optimization**
    - **Finding**: 4-6 PM rush hour adds +20% to trip duration
@@ -434,6 +449,11 @@ Real-time metrics updated based on filters:
   - 🚨 High Alert: Late rates >10% above normal
   - ⚠️ Caution: Late rates elevated 5-10%
   - ✅ Normal: Performance within range
+
+<div align="center">
+  <img src="assets/Image 30-9-2025 at 6.16 PM-1.jpg" alt="Live Stream Real-Time Monitor" width="95%" style="border-radius: 10px; box-shadow: 0 6px 16px rgba(0,0,0,0.25);">
+  <p><i>Live Stream: Real-time monitoring with flying camera and pulsing buildings</i></p>
+</div>
 
 ### 📊 Analytics Panels
 
