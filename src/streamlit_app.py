@@ -778,17 +778,54 @@ else:
             zone_stats_3d["tripsFormatted"] = zone_stats_3d["trips"].apply(lambda x: f"{int(x):,}")
             zone_stats_3d["p90Formatted"] = zone_stats_3d["p90"].apply(lambda x: f"{x:.1f}")
 
-            # Dynamic view based on selection
+            # Dynamic view based on selection with enhanced styling
             map_styles = {
                 "Skyline": "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-                "Satellite": "mapbox://styles/mapbox/satellite-v9",
-                "Navigation": "mapbox://styles/mapbox/navigation-day-v1",
-                "Dark Mode": "mapbox://styles/mapbox/dark-v10"
+                "Satellite": "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
+                "Navigation": "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+                "Dark Mode": "https://basemaps.cartocdn.com/gl/dark-matter-nolabels-gl-style/style.json"
             }
 
+            # Enhanced map styles for better 3D visualization
+            if view_mode == "Navigation":
+                # Use a style with better street detail and labels
+                selected_style = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
+            else:
+                selected_style = map_styles.get(view_mode, map_styles["Skyline"])
+
             # Enhanced layers with multiple visualizations
-            layers = [
-                # Main column layer for trips
+            layers = []
+
+            # Add 3D buildings layer for Navigation mode (realistic city buildings)
+            if view_mode == "Navigation":
+                # Create synthetic 3D building data for NYC
+                building_data = []
+                for _, row in zone_stats_3d.head(50).iterrows():  # Top 50 zones
+                    # Create multiple buildings per zone for realistic city feel
+                    for offset in [(0, 0), (0.002, 0), (0, 0.002), (0.002, 0.002)]:
+                        building_data.append({
+                            "position": [row["lon"] + offset[1], row["lat"] + offset[0]],
+                            "height": np.random.randint(50, 300),  # Random building heights
+                            "color": [200, 200, 200, 80]
+                        })
+
+                if building_data:
+                    layers.append(
+                        pdk.Layer(
+                            "ColumnLayer",
+                            data=building_data,
+                            get_position="position",
+                            get_elevation="height",
+                            elevation_scale=1,
+                            radius=80,
+                            get_fill_color="color",
+                            pickable=False,
+                            opacity=0.15,
+                        )
+                    )
+
+            layers.extend([
+                # Main column layer for trips (data visualization)
                 pdk.Layer(
                     "ColumnLayer",
                     data=zone_stats_3d,
@@ -813,7 +850,7 @@ else:
                     opacity=0.3,
                     coverage=0.8,
                 ),
-            ]
+            ])
 
             # Add animated route flows if enabled
             if show_routes and not corridor_stats.empty:
@@ -859,7 +896,7 @@ else:
             )
 
             deck = pdk.Deck(
-                map_style=map_styles.get(view_mode, map_styles["Skyline"]),
+                map_style=selected_style,
                 initial_view_state=initial_view,
                 layers=layers,
                 tooltip={
