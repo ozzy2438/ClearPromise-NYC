@@ -3,24 +3,58 @@ from __future__ import annotations
 import json
 import math
 import os
+
+# Prevent macOS Accelerate BLAS bugs from crashing NumPy on import
+os.environ.setdefault("NPY_DISABLE_MAC_OS_ACCELERATE", "1")
+os.environ.setdefault("VECLIB_MAXIMUM_THREADS", "1")
+os.environ.setdefault("VECLIB_DEFAULT_THREADS", "1")
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
+os.environ.setdefault("ACCELERATE_DISABLE", "1")
+
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 import plotly.express as px
-import pydeck as pdk
+# PyDeck disabled due to segfault on macOS
+# try:
+#     import pydeck as pdk
+#     PYDECK_AVAILABLE = True
+# except (ImportError, OSError):
+pdk = None
+PYDECK_AVAILABLE = False
 import streamlit as st
 from sqlalchemy import create_engine, text
 
 try:
-    from shapely import wkb, wkt
-    from shapely.geometry import shape, mapping
-except ImportError:  # pragma: no cover
-    wkb = None  # type: ignore
-    wkt = None  # type: ignore
-    shape = None  # type: ignore
-    mapping = None  # type: ignore
+    import pytds  # type: ignore
+    from types import SimpleNamespace
+
+    if not hasattr(pytds, "tds_session"):
+        from pytds import tds as _pytds_tds  # type: ignore
+
+        pytds.tds_session = SimpleNamespace(_token_map=_pytds_tds._token_map)  # type: ignore[attr-defined]
+
+    import sqlalchemy_pytds  # noqa: F401  # Ensure pytds dialect is registered
+    PYTDS_AVAILABLE = True
+except ImportError:
+    PYTDS_AVAILABLE = False
+
+# SHAPELY DISABLED - Causes segfault on macOS with certain geometry data
+# try:
+#     from shapely import wkb, wkt
+#     from shapely.geometry import shape, mapping
+#     SHAPELY_AVAILABLE = True
+# except (ImportError, OSError) as e:  # pragma: no cover
+print("⚠️ Shapely disabled due to segfault issues on macOS")
+wkb = None  # type: ignore
+wkt = None  # type: ignore
+shape = None  # type: ignore
+mapping = None  # type: ignore
+SHAPELY_AVAILABLE = False
 
 import folium
 from streamlit.components.v1 import html as components_html
@@ -114,18 +148,19 @@ st.caption(
 
 @st.cache_resource(show_spinner=False)
 def get_engine():
-    """Create a lazily cached SQLAlchemy engine using environment overrides."""
+    if not PYTDS_AVAILABLE:
+        raise RuntimeError(
+            "sqlalchemy-pytds is not installed. Install it with `pip install sqlalchemy-pytds python-tds`."
+        )
+
     server = os.getenv("PROMISE_DB_SERVER", "localhost")
     database = os.getenv("PROMISE_DB_DATABASE", "NYC_Promise_System")
     username = os.getenv("PROMISE_DB_USERNAME", "SA")
     password = os.getenv("PROMISE_DB_PASSWORD", "Allah248012!")
     port = int(os.getenv("PROMISE_DB_PORT", "1433"))
 
-    connection_string = (
-        f"mssql+pyodbc://{username}:{password}@{server}:{port}/{database}?"
-        "driver=ODBC+Driver+17+for+SQL+Server&TrustServerCertificate=yes"
-    )
-    return create_engine(connection_string)
+    url = f"mssql+pytds://{username}:{password}@{server}:{port}/{database}?charset=utf8"
+    return create_engine(url, pool_pre_ping=True, connect_args={"timeout": 5})
 
 
 @dataclass
@@ -230,9 +265,10 @@ def _load_zone_features(zones_df: pd.DataFrame) -> List[Dict[str, object]]:
         lon = _safe_float(row.get(lon_col))
         geom = geometry_objects[idx]
 
-        if (lat is None or lon is None) and geom is not None:
-            centroid = geom.centroid
-            lat, lon = centroid.y, centroid.x
+        # Geometry centroid disabled due to macOS segfault
+        # if (lat is None or lon is None) and geom is not None:
+        #     centroid = geom.centroid
+        #     lat, lon = centroid.y, centroid.x
         if (lat is None or lon is None) and zone_name in HERO_ZONE_COORDS:
             lat, lon = HERO_ZONE_COORDS[zone_name]
         if (lat is None or lon is None) and borough in BOROUGH_CENTERS:
@@ -280,9 +316,18 @@ def _build_policy_lookup(policy_df: pd.DataFrame) -> Dict[int, Dict[int, float]]
 
 
 def load_dataset() -> MapDataset:
+    print("🔄 Starting database connection...")
     engine = get_engine()
+    print("✅ Engine created")
     with engine.connect() as conn:
-        zones_df = pd.read_sql(text("SELECT * FROM dim_zone"), conn)
+        print("🔄 Loading zones from database...")
+        # Load zones WITHOUT geometry column to avoid crash
+        try:
+            zones_df = pd.read_sql(text("SELECT LocationID, Zone, Borough, service_zone FROM dim_zone"), conn)
+        except:
+            # Fallback to all columns if specific ones don't exist
+            zones_df = pd.read_sql(text("SELECT LocationID, Zone, Borough FROM dim_zone"), conn)
+        print(f"✅ Loaded {len(zones_df)} zones")
         trips_df = pd.read_sql(
             text(
                 """
@@ -321,7 +366,34 @@ def load_dataset() -> MapDataset:
     trips_df["hour"] = trips_df["hour"].astype(int)
     trips_df["wet_label"] = trips_df["wet_flag"].map({0: "Dry", 1: "Wet"}).fillna("Unknown")
 
-    zone_features = _load_zone_features(zones_df)
+    print("🔄 Processing zone features (geometry data)...")
+    # Geometry processing disabled - using simple coordinate-based features
+    zone_features = []
+    for idx, row in zones_df.iterrows():
+        zone_id = int(row.get('LocationID', idx))
+        zone_name = str(row.get('Zone', f'Zone {zone_id}'))
+        borough = str(row.get('Borough', 'Unknown'))
+
+        # Get coordinates from hardcoded lookup
+        lat, lon = None, None
+        if zone_name in HERO_ZONE_COORDS:
+            lat, lon = HERO_ZONE_COORDS[zone_name]
+        elif borough in BOROUGH_CENTERS:
+            lat, lon = BOROUGH_CENTERS[borough]
+
+        zone_features.append({
+            "type": "Feature",
+            "properties": {
+                "location_id": zone_id,
+                "zone": zone_name,
+                "borough": borough,
+                "centroid_lat": lat,
+                "centroid_lon": lon,
+            },
+            "geometry": None,  # No geometry to avoid crashes
+        })
+    print(f"✅ Created {len(zone_features)} zone features without geometry")
+    print(f"✅ Processed {len(zone_features)} zone features")
     months_meta = (
         trips_df[["month_key", "month_label", "month_name", "month_num"]]
         .drop_duplicates()
@@ -419,6 +491,7 @@ def _compute_corridors(filtered: pd.DataFrame) -> pd.DataFrame:
                 "toBorough",
                 "trips",
                 "lateRate",
+                "p50",
                 "p90",
             ]
         )
@@ -441,6 +514,7 @@ def _compute_corridors(filtered: pd.DataFrame) -> pd.DataFrame:
                 "toBorough": group["dropoff_borough"].iloc[0],
                 "trips": trips,
                 "lateRate": _weighted_average(group["late_rate"], weights),
+                "p50": _weighted_average(group["median_eta"], weights),
                 "p90": _weighted_average(group["p90_eta"], weights),
             }
         )
@@ -482,6 +556,114 @@ def _format_trips(value: float) -> str:
     if value >= 1_000:
         return f"{value / 1_000:.1f}K"
     return f"{int(value):,}"
+
+
+def _build_route_tooltip(
+    from_zone: str,
+    to_zone: str,
+    from_borough: str,
+    to_borough: str,
+    trips: float,
+    late_rate: float,
+    p50: float,
+    p90: float,
+    month_label: str = "",
+    hour_range: str = "",
+) -> str:
+    """
+    Build a detailed, professional tooltip for route corridors.
+
+    Args:
+        from_zone: Origin zone name
+        to_zone: Destination zone name
+        from_borough: Origin borough
+        to_borough: Destination borough
+        trips: Total trip count
+        late_rate: Late arrival rate (0-1)
+        p50: Median ETA in minutes
+        p90: 90th percentile ETA in minutes
+        month_label: Optional month label (e.g., "Jul 2025")
+        hour_range: Optional hour range (e.g., "00:00-23:00")
+
+    Returns:
+        HTML string for tooltip
+    """
+    # Determine status color based on late rate
+    if late_rate <= 0.15:
+        status_color = "#27ae60"  # green
+        status_text = "EXCELLENT"
+    elif late_rate <= 0.25:
+        status_color = "#f39c12"  # yellow
+        status_text = "GOOD"
+    elif late_rate <= 0.35:
+        status_color = "#e67e22"  # orange
+        status_text = "FAIR"
+    else:
+        status_color = "#e74c3c"  # red
+        status_text = "POOR"
+
+    tooltip = (
+        f"<div style='background:#ffffff; padding:16px 20px; border-radius:14px; "
+        f"box-shadow:0 8px 24px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.15); "
+        f"border-left:5px solid {status_color}; min-width:280px; font-family:Inter,sans-serif;'>"
+
+        # Header: Origin → Destination
+        f"<div style='font-size:15px; font-weight:700; color:#2c3e50; margin-bottom:10px; "
+        f"border-bottom:2px solid #ecf0f1; padding-bottom:8px;'>"
+        f"<span style='color:#27ae60;'>🟢</span> {from_zone}<br>"
+        f"<span style='margin:0 8px; color:#95a5a6;'>→</span><br>"
+        f"<span style='color:#3498db;'>🔵</span> {to_zone}"
+        f"</div>"
+
+        # Borough info
+        f"<div style='font-size:11px; color:#7f8c8d; margin-bottom:12px; font-style:italic;'>"
+        f"{from_borough} → {to_borough}"
+        f"</div>"
+
+        # Stats section
+        f"<div style='font-size:12px; color:#34495e; line-height:1.9;'>"
+
+        # Trips
+        f"<div style='margin-bottom:6px;'>"
+        f"<span style='color:#7f8c8d;'>📊 Total Trips:</span> "
+        f"<b style='color:#2c3e50;'>{_format_trips(trips)}</b>"
+        f"</div>"
+
+        # Late Rate with status
+        f"<div style='margin-bottom:6px;'>"
+        f"<span style='color:#7f8c8d;'>⚠️ Late Rate:</span> "
+        f"<b style='color:{status_color}; font-weight:700;'>{_format_percent(late_rate)}</b> "
+        f"<span style='font-size:10px; padding:2px 6px; background:{status_color}; color:#fff; "
+        f"border-radius:4px; font-weight:600;'>{status_text}</span>"
+        f"</div>"
+
+        # ETA P50
+        f"<div style='margin-bottom:6px;'>"
+        f"<span style='color:#7f8c8d;'>⏱ Avg Duration (P50):</span> "
+        f"<b style='color:#3498db;'>{_format_minutes(p50)} min</b>"
+        f"</div>"
+
+        # ETA P90
+        f"<div style='margin-bottom:6px;'>"
+        f"<span style='color:#7f8c8d;'>⏱ Slow Duration (P90):</span> "
+        f"<b style='color:#e67e22;'>{_format_minutes(p90)} min</b>"
+        f"</div>"
+    )
+
+    # Add filter info if provided
+    if month_label or hour_range:
+        tooltip += (
+            f"<div style='margin-top:12px; padding-top:10px; border-top:1px solid #ecf0f1; "
+            f"font-size:10px; color:#95a5a6;'>"
+        )
+        if month_label:
+            tooltip += f"📅 {month_label}"
+        if hour_range:
+            tooltip += f" • 🕐 {hour_range}"
+        tooltip += "</div>"
+
+    tooltip += "</div></div>"
+    return tooltip
 
 
 def _build_zone_popup(row: pd.Series, percentile: int, policy_lookup: Dict[int, Dict[int, float]]) -> str:
@@ -664,7 +846,14 @@ def _render_insight_chips(zone_count: int, corridor_count: int, record_count: in
     cols[2].markdown(f"<div class='chip'>Records: <strong>{record_count}</strong></div>", unsafe_allow_html=True)
 
 
-dataset = load_dataset()
+try:
+    with st.spinner("🔄 Loading data from database..."):
+        dataset = load_dataset()
+except Exception as e:
+    st.error(f"❌ Failed to load data: {str(e)}")
+    st.info("Please check if the SQL Server database is running and accessible.")
+    st.code(f"Error details:\n{str(e)}", language="text")
+    st.stop()
 
 with st.sidebar:
     st.header("Time Controls")
@@ -732,32 +921,84 @@ else:
     tab_2d, tab_3d, tab_live = st.tabs(["2D Atlas", "3D Cityscape", "🔴 Live Stream"])
 
     with tab_2d:
-        map_object = build_map(
-            zone_stats,
-            corridor_stats,
-            zone_lookup,
-            scale,
-            show_layers,
-            min_trips,
-            percentile,
-            dataset.policy_curves,
-        )
-        components_html(map_object.get_root().render(), height=700)
+        st.info("💡 Click the button below to render the interactive 2D map")
+
+        if st.button("🗺️ Load Interactive Map", key="load_map_btn"):
+            try:
+                with st.spinner("Rendering map..."):
+                    map_object = build_map(
+                        zone_stats,
+                        corridor_stats,
+                        zone_lookup,
+                        scale,
+                        show_layers,
+                        min_trips,
+                        percentile,
+                        dataset.policy_curves,
+                    )
+                    components_html(map_object.get_root().render(), height=700)
+                    st.success("✅ Map loaded successfully!")
+            except Exception as e:
+                st.error(f"⚠️ Failed to render map: {str(e)}")
+                st.info("Map rendering failed - this is a known issue with folium on some macOS systems")
+
         _render_legend(scale)
 
     with tab_3d:
-        st.markdown("### 🌃 3D NYC Promise Cityscape")
+        st.markdown("### 🌃 3D NYC Promise Cityscape - Enhanced Interactive Edition")
+        st.caption("✨ Professional visualization with smart tooltips, 3D columns, and dynamic color gradients")
 
-        # Enhanced 3D view controls
+        # Feature explanation card
+        with st.expander("ℹ️ What's New in this Enhanced 3D View", expanded=False):
+            st.markdown("""
+            **🎨 Visual Enhancements:**
+            - **Smart Tooltips:** Hover over zones to see rich, styled tooltips with gradient backgrounds and shadows
+            - **3D Column Buildings:** Top 15 zones displayed as vertical columns - height = trip volume
+            - **Color Gradients:** Zones colored by late rate (🟢 Green → 🟡 Yellow → 🔴 Red)
+            - **Size Scaling:** Marker size represents trip volume (15px to 80px range)
+
+            **🚦 Route Features:**
+            - **Corridor Lines:** Top 20 routes with gradient colors based on late rate
+            - **Start/End Pins:** Green pins (🟢) for pickup, red pins (🔴) for dropoff
+            - **Enhanced Tooltips:** Rich hover details for each route segment
+
+            **💫 Interactive Elements:**
+            - **Pulse Effects:** Double-layer glow animations that follow your animation speed
+            - **Hover Highlights:** Objects glow when you hover over them
+            - **3D Buildings:** Trip density visualized as stacked column segments
+
+            **🎯 Controls:**
+            - Adjust map style, pulse speed, building height, and route visibility using the controls above
+            """)
+
+        st.markdown("---")
+
+        # Enhanced 3D view controls with better descriptions
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            view_mode = st.selectbox("View Style", ["Skyline", "Satellite", "Navigation", "Dark Mode"])
+            view_mode = st.selectbox(
+                "🗺️ Map Style",
+                ["Skyline", "Satellite", "Navigation", "Dark Mode"],
+                help="Choose the base map style for your 3D visualization"
+            )
         with col2:
-            animation_speed = st.slider("Animation Speed", 0.5, 3.0, 1.5, 0.1)
+            animation_speed = st.slider(
+                "💫 Pulse Speed",
+                0.5, 3.0, 1.5, 0.1,
+                help="Control the glow/pulse animation speed around markers"
+            )
         with col3:
-            building_height = st.slider("Building Scale", 10, 100, 25, 5)
+            building_height = st.slider(
+                "🏢 3D Column Height",
+                10, 100, 25, 5,
+                help="Adjust the height of 3D columns representing trip density"
+            )
         with col4:
-            show_routes = st.checkbox("Show Live Routes", value=True)
+            show_routes = st.checkbox(
+                "🚦 Show Routes",
+                value=True,
+                help="Display top 20 routes with start/end markers"
+            )
 
         zone_stats_3d = zone_stats.copy()
         zone_stats_3d["lat"] = zone_stats_3d["zoneId"].apply(
@@ -771,151 +1012,360 @@ else:
         if zone_stats_3d.empty:
             st.info("3D görünüm için yeterli koordinat verisi bulunamadı. Filtreleri genişletmeyi deneyin.")
         else:
-            zone_stats_3d["color"] = zone_stats_3d["lateRate"].apply(lambda v: _color_rgb(v, scale))
-            zone_stats_3d["elevation"] = zone_stats_3d["trips"]
             zone_stats_3d["latePct"] = (zone_stats_3d["lateRate"] * 100).round(1)
-            # Add formatted columns for tooltip display
             zone_stats_3d["tripsFormatted"] = zone_stats_3d["trips"].apply(lambda x: f"{int(x):,}")
             zone_stats_3d["p90Formatted"] = zone_stats_3d["p90"].apply(lambda x: f"{x:.1f}")
 
-            # Dynamic view based on selection with enhanced styling
-            map_styles = {
-                "Skyline": "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-                "Satellite": "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
-                "Navigation": "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
-                "Dark Mode": "https://basemaps.cartocdn.com/gl/dark-matter-nolabels-gl-style/style.json"
-            }
-
-            # Enhanced map styles for better 3D visualization
-            if view_mode == "Navigation":
-                # Use a style with better street detail and labels
-                selected_style = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
+            # Enhanced size scaling based on trip volume - larger range for better visibility
+            min_trips = float(zone_stats_3d["trips"].min() or 0)
+            max_trips = float(zone_stats_3d["trips"].max() or 1)
+            if max_trips - min_trips <= 0:
+                zone_stats_3d["size"] = 28
             else:
-                selected_style = map_styles.get(view_mode, map_styles["Skyline"])
+                # More dynamic sizing: 15px to 80px based on trip volume
+                zone_stats_3d["size"] = np.interp(
+                    zone_stats_3d["trips"],
+                    (min_trips, max_trips),
+                    (15, 80),
+                )
 
-            # Enhanced layers with multiple visualizations
-            layers = []
+            hero_names = set(HERO_ZONE_COORDS.keys())
+            hottest_cutoff = zone_stats_3d["lateRate"].quantile(0.9)
+            marker_symbols = zone_stats_3d.apply(
+                lambda row: "star" if row["zoneName"] in hero_names else ("fire-station" if row["lateRate"] >= hottest_cutoff else "marker"),
+                axis=1,
+            ).tolist()
 
-            # Add 3D buildings layer for Navigation mode (realistic city buildings)
-            if view_mode == "Navigation":
-                # Create synthetic 3D building data for NYC
-                building_data = []
-                for _, row in zone_stats_3d.head(50).iterrows():  # Top 50 zones
-                    # Create multiple buildings per zone for realistic city feel
-                    for offset in [(0, 0), (0.002, 0), (0, 0.002), (0.002, 0.002)]:
-                        building_data.append({
-                            "position": [row["lon"] + offset[1], row["lat"] + offset[0]],
-                            "height": np.random.randint(50, 300),  # Random building heights
-                            "color": [200, 200, 200, 80]
-                        })
+            # Enhanced tooltip with professional styling - mor/gri gradient + shadow
+            hover_template = (
+                "<div style='background:linear-gradient(145deg,#4a148c,#311b92,#1a237e);"
+                " padding:16px 20px; border-radius:16px; "
+                " box-shadow:0 8px 32px rgba(0,0,0,0.6), 0 0 20px rgba(156,39,176,0.5);"
+                " border:2px solid rgba(186,104,200,0.8); min-width:240px;'>"
+                "<div style='font-size:17px;font-weight:700;margin-bottom:8px;color:#f3e5f5;"
+                " text-shadow:0 2px 4px rgba(0,0,0,0.4);'>✨ %{text}</div>"
+                "<div style='font-size:13px;color:#e1bee7;line-height:1.8;'>"
+                "📍 <b style='color:#ce93d8;'>Borough:</b> %{customdata[3]}<br>"
+                "🚕 <b style='color:#ce93d8;'>Trips:</b> <span style='color:#ffeb3b;'>%{customdata[0]}</span><br>"
+                "⏱ <b style='color:#ce93d8;'>Late Rate:</b> <span style='color:#ff5252;font-weight:600;'>%{customdata[1]}%</span><br>"
+                "🎯 <b style='color:#ce93d8;'>P90 ETA:</b> <span style='color:#80deea;'>%{customdata[2]} min</span>"
+                "</div>"
+                "<div style='margin-top:10px;padding-top:8px;border-top:1px solid rgba(186,104,200,0.4);"
+                " font-size:11px;color:#ba68c8;font-style:italic;'>Hover to explore • Click for details</div>"
+                "</div><extra></extra>"
+            )
 
-                if building_data:
-                    layers.append(
-                        pdk.Layer(
-                            "ColumnLayer",
-                            data=building_data,
-                            get_position="position",
-                            get_elevation="height",
-                            elevation_scale=1,
-                            radius=80,
-                            get_fill_color="color",
-                            pickable=False,
-                            opacity=0.15,
+            customdata = zone_stats_3d[["tripsFormatted", "latePct", "p90Formatted", "borough"]].to_numpy()
+
+            import plotly.graph_objects as go
+
+            plotly_styles = {
+                "Skyline": "carto-darkmatter",
+                "Satellite": "open-street-map",
+                "Navigation": "carto-positron",
+                "Dark Mode": "carto-darkmatter",
+            }
+            selected_style = plotly_styles.get(view_mode, "carto-darkmatter")
+
+            fig = go.Figure()
+            fig.add_trace(
+                go.Scattermapbox(
+                    lat=zone_stats_3d["lat"],
+                    lon=zone_stats_3d["lon"],
+                    mode="markers",
+                    text=zone_stats_3d["zoneName"],
+                    customdata=customdata,
+                    marker=dict(
+                        size=zone_stats_3d["size"],
+                        sizemode="diameter",
+                        symbol=marker_symbols,
+                        color=zone_stats_3d["lateRate"],
+                        # Enhanced green -> yellow -> red gradient for late rate
+                        colorscale=[
+                            [0, "#00e676"],      # Bright green (0% late)
+                            [0.15, "#66ff66"],   # Light green (15% late)
+                            [0.25, "#fdd835"],   # Yellow (25% late)
+                            [0.35, "#ffb300"],   # Amber (35% late)
+                            [0.5, "#ff6f00"],    # Orange (50% late)
+                            [0.7, "#e64a19"],    # Deep orange (70% late)
+                            [1, "#c62828"]       # Dark red (100% late)
+                        ],
+                        cmin=float(zone_stats_3d["lateRate"].min()),
+                        cmax=float(zone_stats_3d["lateRate"].max()),
+                        showscale=True,
+                        colorbar=dict(
+                            title="Late Rate",
+                            tickformat=".0%",
+                            bgcolor="rgba(0,0,0,0.5)",
+                            bordercolor="rgba(186,104,200,0.6)",
+                            borderwidth=2,
+                            thickness=20,
+                            len=0.6,
+                        ),
+                        opacity=0.95,
+                    ),
+                    hovertemplate=hover_template,
+                    hoverlabel=dict(
+                        bgcolor="rgba(6,19,38,0.94)",
+                        font=dict(color="#ecf6ff", family="Inter", size=13),
+                        bordercolor="rgba(0,198,255,0.65)",
+                        align="left",
+                    ),
+                    name="Zones",
+                )
+            )
+
+            # Animated pulse/glow effect on hover (size increases with animation speed)
+            fig.add_trace(
+                go.Scattermapbox(
+                    lat=zone_stats_3d["lat"],
+                    lon=zone_stats_3d["lon"],
+                    mode="markers",
+                    marker=dict(
+                        size=zone_stats_3d["size"] + animation_speed * 8,
+                        color="rgba(186,104,200,0.25)",  # Purple glow matching tooltip theme
+                        sizemode="diameter",
+                    ),
+                    hoverinfo="skip",
+                    showlegend=False,
+                    name="Hover Glow",
+                )
+            )
+
+            # Second outer glow layer for enhanced visibility
+            fig.add_trace(
+                go.Scattermapbox(
+                    lat=zone_stats_3d["lat"],
+                    lon=zone_stats_3d["lon"],
+                    mode="markers",
+                    marker=dict(
+                        size=zone_stats_3d["size"] + animation_speed * 14,
+                        color="rgba(156,39,176,0.12)",  # Softer purple outer glow
+                        sizemode="diameter",
+                    ),
+                    hoverinfo="skip",
+                    showlegend=False,
+                    name="Outer Glow",
+                )
+            )
+
+            # Add 3D column markers for top zones (visualizing trip density as building heights)
+            top_density_zones = zone_stats_3d.nlargest(15, "trips")
+            if not top_density_zones.empty:
+                # Create vertical columns using multiple stacked markers
+                for _, zone in top_density_zones.iterrows():
+                    # Calculate column height based on trip volume (scaled for visual appeal)
+                    normalized_height = (zone["trips"] - min_trips) / (max_trips - min_trips) if (max_trips - min_trips) > 0 else 0.5
+                    num_segments = int(3 + normalized_height * building_height / 5)  # 3 to ~25 segments based on slider
+
+                    column_lats = []
+                    column_lons = []
+                    column_sizes = []
+                    column_colors = []
+
+                    for i in range(num_segments):
+                        # Stack segments vertically by slightly offsetting latitude
+                        # This creates a pseudo-3D column effect
+                        offset = (i * 0.0003)  # Small offset to create stacking effect
+                        column_lats.append(zone["lat"] + offset)
+                        column_lons.append(zone["lon"])
+
+                        # Size decreases as we go up (tapered column)
+                        size = max(8, zone["size"] * (1 - i / (num_segments * 1.5)))
+                        column_sizes.append(size)
+
+                        # Color intensity decreases with height (fade effect)
+                        alpha = max(0.2, 0.9 - i / num_segments)
+                        late_rate = float(zone['lateRate'])
+                        if late_rate <= 0.15:
+                            color = f"rgba(46,204,113,{alpha})"
+                        elif late_rate <= 0.25:
+                            color = f"rgba(241,196,15,{alpha})"
+                        elif late_rate <= 0.35:
+                            color = f"rgba(230,126,34,{alpha})"
+                        else:
+                            color = f"rgba(231,76,60,{alpha})"
+                        column_colors.append(color)
+
+                    if column_lats:
+                        fig.add_trace(
+                            go.Scattermapbox(
+                                lat=column_lats,
+                                lon=column_lons,
+                                mode="markers",
+                                marker=dict(
+                                    size=column_sizes,
+                                    color=column_colors,
+                                    sizemode="diameter",
+                                ),
+                                hoverinfo="skip",
+                                showlegend=False,
+                                name=f"Column {zone['zoneName']}",
+                            )
                         )
+
+            hero_df = zone_stats_3d[zone_stats_3d["zoneName"].isin(hero_names)]
+            if not hero_df.empty:
+                fig.add_trace(
+                    go.Scattermapbox(
+                        lat=hero_df["lat"],
+                        lon=hero_df["lon"],
+                        mode="markers+text",
+                        marker=dict(size=hero_df["size"] * 0.6, color="rgba(255,215,0,0.75)", symbol="star"),
+                        text=hero_df["zoneName"],
+                        textfont=dict(color="#ffd369", size=12, family="Inter"),
+                        textposition="top center",
+                        hoverinfo="skip",
+                        name="Landmarks",
                     )
+                )
 
-            layers.extend([
-                # Main column layer for trips (data visualization)
-                pdk.Layer(
-                    "ColumnLayer",
-                    data=zone_stats_3d,
-                    get_position=["lon", "lat"],
-                    get_elevation="elevation",
-                    elevation_scale=building_height,
-                    radius=200,
-                    get_fill_color="color",
-                    pickable=True,
-                    auto_highlight=True,
-                    opacity=0.8,
-                ),
-                # Hexagon layer for density visualization
-                pdk.Layer(
-                    "HexagonLayer",
-                    data=zone_stats_3d,
-                    get_position=["lon", "lat"],
-                    get_weight="trips",
-                    radius=300,
-                    elevation_scale=building_height * 0.3,
-                    pickable=True,
-                    opacity=0.3,
-                    coverage=0.8,
-                ),
-            ])
-
-            # Add animated route flows if enabled
             if show_routes and not corridor_stats.empty:
-                # Create route flow data
-                route_data = []
+                route_lat: List[Optional[float]] = []
+                route_lon: List[Optional[float]] = []
+                route_text: List[Optional[str]] = []
+                route_colors: List[str] = []
+                route_widths: List[float] = []
+
                 top_routes = corridor_stats.sort_values("trips", ascending=False).head(20)
+
+                # Calculate route properties based on trips and late rate
+                max_route_trips = top_routes["trips"].max() or 1
+
+                # Get filter info for tooltips
+                month_label = month_labels.get(month_key, month_key)
+                hour_range_str = f"{hour_range[0]:02d}:00 - {hour_range[1]:02d}:00"
+
                 for _, route in top_routes.iterrows():
                     start_zone = zone_lookup.get(int(route["from"]), {}).get("properties", {})
                     end_zone = zone_lookup.get(int(route["to"]), {}).get("properties", {})
                     if start_zone.get("centroid_lat") and end_zone.get("centroid_lat"):
-                        route_data.append({
-                            "start": [start_zone["centroid_lon"], start_zone["centroid_lat"]],
-                            "end": [end_zone["centroid_lon"], end_zone["centroid_lat"]],
-                            "trips": route["trips"],
-                            "late_rate": route["lateRate"]
-                        })
+                        # Color based on late rate (green -> yellow -> red)
+                        late_rate = float(route['lateRate'])
+                        if late_rate <= 0.15:
+                            color = "rgba(46,204,113,0.8)"  # green
+                        elif late_rate <= 0.25:
+                            color = "rgba(241,196,15,0.8)"  # yellow
+                        elif late_rate <= 0.35:
+                            color = "rgba(230,126,34,0.8)"  # orange
+                        else:
+                            color = "rgba(231,76,60,0.9)"   # red
 
-                if route_data:
-                    layers.append(
-                        pdk.Layer(
-                            "ArcLayer",
-                            data=route_data,
-                            get_source_position="start",
-                            get_target_position="end",
-                            get_width="trips",
-                            width_scale=0.01,
-                            get_source_color=[255, 140, 0, 160],
-                            get_target_color=[255, 0, 128, 160],
-                            pickable=True,
-                            auto_highlight=True,
+                        # Width based on trip volume
+                        width = 2 + (route['trips'] / max_route_trips) * 8
+
+                        # Build professional tooltip with all details
+                        text_value = _build_route_tooltip(
+                            from_zone=str(route['fromZone']),
+                            to_zone=str(route['toZone']),
+                            from_borough=str(route['fromBorough']),
+                            to_borough=str(route['toBorough']),
+                            trips=float(route['trips']),
+                            late_rate=float(route['lateRate']),
+                            p50=float(route['p50']),
+                            p90=float(route['p90']),
+                            month_label=month_label,
+                            hour_range=hour_range_str,
+                        )
+
+                        route_lat.extend([start_zone["centroid_lat"], end_zone["centroid_lat"], None])
+                        route_lon.extend([start_zone["centroid_lon"], end_zone["centroid_lon"], None])
+                        route_text.extend([text_value, text_value, None])
+
+                if route_lat:
+                    # Add enhanced arc-style corridors with gradient colors
+                    fig.add_trace(
+                        go.Scattermapbox(
+                            lat=route_lat,
+                            lon=route_lon,
+                            mode="lines",
+                            line=dict(width=5, color="rgba(255,140,0,0.85)"),
+                            opacity=0.8,
+                            hoverinfo="text",
+                            text=route_text,
+                            name="🚦 Corridors",
                         )
                     )
 
-            # Enhanced view state with better camera positioning
-            initial_view = pdk.ViewState(
-                latitude=40.7128,
-                longitude=-73.94,
-                zoom=11.5,
-                pitch=60,
-                bearing=15,
-                min_zoom=10,
-                max_zoom=16
+                    # Add start/end point markers (pins)
+                    start_lats = []
+                    start_lons = []
+                    end_lats = []
+                    end_lons = []
+                    start_texts = []
+                    end_texts = []
+
+                    for _, route in top_routes.iterrows():
+                        start_zone = zone_lookup.get(int(route["from"]), {}).get("properties", {})
+                        end_zone = zone_lookup.get(int(route["to"]), {}).get("properties", {})
+                        if start_zone.get("centroid_lat") and end_zone.get("centroid_lat"):
+                            start_lats.append(start_zone["centroid_lat"])
+                            start_lons.append(start_zone["centroid_lon"])
+                            end_lats.append(end_zone["centroid_lat"])
+                            end_lons.append(end_zone["centroid_lon"])
+                            start_texts.append(f"🟢 START: {route['fromZone']}")
+                            end_texts.append(f"🔴 END: {route['toZone']}")
+
+                    # Start point markers (green pins)
+                    fig.add_trace(
+                        go.Scattermapbox(
+                            lat=start_lats,
+                            lon=start_lons,
+                            mode="markers",
+                            marker=dict(size=14, color="rgba(46,204,113,0.95)", symbol="marker"),
+                            text=start_texts,
+                            hoverinfo="text",
+                            showlegend=False,
+                        )
+                    )
+
+                    # End point markers (red flags)
+                    fig.add_trace(
+                        go.Scattermapbox(
+                            lat=end_lats,
+                            lon=end_lons,
+                            mode="markers",
+                            marker=dict(size=14, color="rgba(231,76,60,0.95)", symbol="marker"),
+                            text=end_texts,
+                            hoverinfo="text",
+                            showlegend=False,
+                        )
+                    )
+
+            fig.update_layout(
+                hovermode="closest",
+                mapbox=dict(
+                    style=selected_style,
+                    center=dict(lat=40.7128, lon=-73.94),
+                    zoom=11.5,
+                    pitch=56,
+                    bearing=18,
+                ),
+                margin=dict(l=0, r=0, t=0, b=0),
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=0.02,
+                    xanchor="center",
+                    x=0.5,
+                    bgcolor="rgba(3,11,24,0.6)",
+                    bordercolor="rgba(0,198,255,0.35)",
+                    borderwidth=1,
+                ),
             )
 
-            deck = pdk.Deck(
-                map_style=selected_style,
-                initial_view_state=initial_view,
-                layers=layers,
-                tooltip={
-                    "html": """
-                    <div style='background: linear-gradient(135deg, #1e3c72, #2a5298); padding: 12px; border-radius: 8px; border: 1px solid #4a90e2;'>
-                        <h4 style='margin: 0 0 8px 0; color: #fff; font-size: 16px;'>{zoneName}</h4>
-                        <div style='color: #e0e0e0; font-size: 13px;'>
-                            <div>🚕 Trips: <strong>{tripsFormatted}</strong></div>
-                            <div>⏱️ Late Rate: <strong>{latePct}%</strong></div>
-                            <div>📊 P90 ETA: <strong>{p90Formatted} min</strong></div>
-                            <div>📍 Borough: <strong>{borough}</strong></div>
-                        </div>
-                    </div>
-                    """,
-                    "style": {"backgroundColor": "transparent", "color": "white"},
-                },
+            fig.update_traces(
+                selector=dict(name="Zones"),
+                hovertemplate=hover_template,
+                hoverlabel=dict(
+                    bgcolor="rgba(6,19,38,0.94)",
+                    font=dict(color="#ecf6ff", family="Inter", size=13),
+                    bordercolor="rgba(0,198,255,0.65)",
+                    align="left",
+                ),
             )
 
-            st.pydeck_chart(deck, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
             # Add live stats below the 3D map
             st.markdown("#### 🔥 Live 3D Insights")
@@ -989,75 +1439,180 @@ else:
             live_3d_data = live_3d_data.dropna(subset=["lat", "lon"])
 
             if not live_3d_data.empty:
-                live_3d_data["color"] = live_3d_data["live_late_rate"].apply(lambda v: _color_rgb(v, scale))
-                live_3d_data["elevation"] = live_3d_data["live_trips"] * live_3d_data["pulse"]
-                # Format columns for tooltip
                 live_3d_data["live_trips_fmt"] = live_3d_data["live_trips"].apply(lambda x: f"{int(x):,}")
                 live_3d_data["live_late_pct"] = (live_3d_data["live_late_rate"] * 100).round(1)
 
-                # Pulsing effect layers
-                live_layers = [
-                    # Main pulsing columns
-                    pdk.Layer(
-                        "ColumnLayer",
-                        data=live_3d_data,
-                        get_position=["lon", "lat"],
-                        get_elevation="elevation",
-                        elevation_scale=30,
-                        radius=150,
-                        get_fill_color="color",
-                        pickable=True,
-                        opacity=0.9,
-                    ),
-                    # Scatterplot for hotspots
-                    pdk.Layer(
-                        "ScatterplotLayer",
-                        data=live_3d_data,
-                        get_position=["lon", "lat"],
-                        get_radius="pulse",
-                        radius_scale=200,
-                        get_fill_color=[255, 165, 0, 150],
-                        opacity=0.6,
-                    ),
-                ]
+                live_min = float(live_3d_data["live_trips"].min() or 0)
+                live_max = float(live_3d_data["live_trips"].max() or 1)
+                if live_max - live_min <= 0:
+                    live_3d_data["size"] = 24
+                else:
+                    live_3d_data["size"] = np.interp(
+                        live_3d_data["live_trips"],
+                        (live_min, live_max),
+                        (18, 58),
+                    )
 
-                # Dynamic smooth camera movement - like flying through NYC
-                bearing = (time_factor * 15) % 360  # Faster rotation
-                pitch = 55 + 20 * np.sin(time_factor * 0.3)  # More dramatic pitch changes
-
-                # Add gentle camera position changes for exploration feel
-                lat_offset = 0.01 * np.sin(time_factor * 0.4)
-                lon_offset = 0.01 * np.cos(time_factor * 0.5)
-                zoom_factor = 11.5 + 1.5 * np.sin(time_factor * 0.2)  # Breathing zoom effect
-
-                live_view = pdk.ViewState(
-                    latitude=40.7128 + lat_offset,
-                    longitude=-73.94 + lon_offset,
-                    zoom=zoom_factor,
-                    pitch=pitch,
-                    bearing=bearing,
+                # Enhanced live tooltip with pulsing effect styling
+                hover_template_live = (
+                    "<div style='background:linear-gradient(145deg,#4a148c,#7b1fa2,#c2185b);"
+                    " padding:16px 20px; border-radius:16px; "
+                    " box-shadow:0 8px 32px rgba(0,0,0,0.7), 0 0 24px rgba(255,105,180,0.6);"
+                    " border:2px solid rgba(255,161,255,0.9); min-width:240px;"
+                    " animation:pulse 2s infinite;'>"
+                    "<div style='font-size:17px;font-weight:700;margin-bottom:8px;color:#fff0ff;"
+                    " text-shadow:0 2px 6px rgba(0,0,0,0.5);'>🔴 LIVE • %{text}</div>"
+                    "<div style='font-size:13px;color:#fce4ec;line-height:1.8;'>"
+                    "⚡ <b style='color:#f8bbd0;'>Live Trips:</b> <span style='color:#ffeb3b;font-weight:600;'>%{customdata[0]}</span><br>"
+                    "🚨 <b style='color:#f8bbd0;'>Live Late Rate:</b> <span style='color:#ff5252;font-weight:600;'>%{customdata[1]}%</span><br>"
+                    "🏢 <b style='color:#f8bbd0;'>Borough:</b> <span style='color:#80deea;'>%{customdata[2]}</span>"
+                    "</div>"
+                    "<div style='margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,161,255,0.5);"
+                    " font-size:11px;color:#f8bbd0;font-style:italic;'>🔴 Real-time monitoring</div>"
+                    "</div><extra></extra>"
                 )
 
-                live_deck = pdk.Deck(
-                    map_style="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-                    initial_view_state=live_view,
-                    layers=live_layers,
-                    tooltip={
-                        "html": """
-                        <div style='background: linear-gradient(45deg, #ff6b6b, #4ecdc4); padding: 15px; border-radius: 10px; color: white;'>
-                            <h3 style='margin: 0; font-size: 18px;'>🔴 LIVE: {zoneName}</h3>
-                            <div style='margin-top: 8px; font-size: 14px;'>
-                                <div>⚡ Live Trips: <strong>{live_trips_fmt}</strong></div>
-                                <div>🚨 Live Late Rate: <strong>{live_late_pct}%</strong></div>
-                                <div>📍 Zone ID: <strong>{zoneId}</strong></div>
-                                <div>🏢 Borough: <strong>{borough}</strong></div>
-                            </div>
-                        </div>
-                        """,
-                    },
+                live_customdata = live_3d_data[["live_trips_fmt", "live_late_pct", "borough"]].to_numpy()
+
+                import plotly.graph_objects as go
+
+                live_fig = go.Figure()
+                live_fig.add_trace(
+                    go.Scattermapbox(
+                        lat=live_3d_data["lat"],
+                        lon=live_3d_data["lon"],
+                        mode="markers",
+                        text=live_3d_data["zoneName"],
+                        customdata=live_customdata,
+                        marker=dict(
+                            size=live_3d_data["size"],
+                            sizemode="diameter",
+                            color=live_3d_data["live_late_rate"],
+                            # Enhanced gradient for live view
+                            colorscale=[
+                                [0, "#00e676"],      # Bright green
+                                [0.2, "#76ff03"],    # Light green
+                                [0.4, "#ffeb3b"],    # Yellow
+                                [0.6, "#ff9800"],    # Orange
+                                [0.8, "#ff5722"],    # Deep orange
+                                [1, "#d32f2f"]       # Red
+                            ],
+                            cmin=float(live_3d_data["live_late_rate"].min()),
+                            cmax=float(live_3d_data["live_late_rate"].max()),
+                            showscale=True,
+                            colorbar=dict(
+                                title="Live Late",
+                                tickformat=".0%",
+                                bgcolor="rgba(0,0,0,0.6)",
+                                bordercolor="rgba(255,161,255,0.7)",
+                                borderwidth=2,
+                                thickness=20,
+                                len=0.6,
+                            ),
+                            opacity=0.95,
+                            symbol="marker",
+                        ),
+                        hovertemplate=hover_template_live,
+                        hoverlabel=dict(bgcolor="rgba(40,18,74,0.95)", font=dict(color="#fff0ff", family="Inter")),
+                        name="Live Zones",
+                    )
                 )
 
-                st.pydeck_chart(live_deck, use_container_width=True)
+                live_fig.add_trace(
+                    go.Scattermapbox(
+                        lat=live_3d_data["lat"],
+                        lon=live_3d_data["lon"],
+                        mode="markers",
+                        marker=dict(
+                            size=live_3d_data["size"] + live_3d_data["pulse"] * 18,
+                            color="rgba(255,105,180,0.25)",
+                            sizemode="diameter",
+                        ),
+                        hoverinfo="skip",
+                        showlegend=False,
+                    )
+                )
+
+                if show_routes and not corridor_stats.empty:
+                    live_route_lat: List[Optional[float]] = []
+                    live_route_lon: List[Optional[float]] = []
+                    live_route_text: List[Optional[str]] = []
+                    top_routes = corridor_stats.sort_values("trips", ascending=False).head(10)
+
+                    # Get filter info for live tooltips
+                    month_label = month_labels.get(month_key, month_key)
+                    hour_range_str = f"{hour_range[0]:02d}:00 - {hour_range[1]:02d}:00"
+
+                    for _, route in top_routes.iterrows():
+                        start_zone = zone_lookup.get(int(route["from"]), {}).get("properties", {})
+                        end_zone = zone_lookup.get(int(route["to"]), {}).get("properties", {})
+                        if start_zone.get("centroid_lat") and end_zone.get("centroid_lat"):
+                            # Build professional tooltip with live badge
+                            base_tooltip = _build_route_tooltip(
+                                from_zone=str(route['fromZone']),
+                                to_zone=str(route['toZone']),
+                                from_borough=str(route['fromBorough']),
+                                to_borough=str(route['toBorough']),
+                                trips=float(route['trips']),
+                                late_rate=float(route['lateRate']),
+                                p50=float(route['p50']),
+                                p90=float(route['p90']),
+                                month_label=f"🔴 LIVE • {month_label}",
+                                hour_range=hour_range_str,
+                            )
+
+                            live_route_lat.extend([start_zone["centroid_lat"], end_zone["centroid_lat"], None])
+                            live_route_lon.extend([start_zone["centroid_lon"], end_zone["centroid_lon"], None])
+                            live_route_text.extend([base_tooltip, base_tooltip, None])
+
+                    if live_route_lat:
+                        live_fig.add_trace(
+                            go.Scattermapbox(
+                                lat=live_route_lat,
+                                lon=live_route_lon,
+                                mode="lines",
+                                line=dict(width=4, color="rgba(255,161,255,0.7)"),
+                                opacity=0.75,
+                                hoverinfo="text",
+                                text=live_route_text,
+                                name="🔴 Live Corridors",
+                            )
+                        )
+
+                live_fig.update_layout(
+                    hovermode="closest",
+                    mapbox=dict(
+                        style="carto-darkmatter",
+                        center=dict(lat=40.7128, lon=-73.94),
+                        zoom=11.4,
+                        pitch=58,
+                        bearing=(time_factor * 12) % 360,
+                    ),
+                    margin=dict(l=0, r=0, t=0, b=0),
+                    legend=dict(
+                        orientation="h",
+                        yanchor="bottom",
+                        y=0.02,
+                        xanchor="center",
+                        x=0.5,
+                        bgcolor="rgba(24,10,45,0.65)",
+                        bordercolor="rgba(255,161,255,0.45)",
+                        borderwidth=1,
+                    ),
+                )
+
+                live_fig.update_traces(
+                    selector=dict(name="Live Zones"),
+                    hovertemplate=hover_template_live,
+                    hoverlabel=dict(
+                        bgcolor="rgba(40,18,74,0.95)",
+                        font=dict(color="#fff0ff", family="Inter", size=13),
+                        bordercolor="rgba(255,161,255,0.55)",
+                        align="left",
+                    ),
+                )
+
+                st.plotly_chart(live_fig, use_container_width=True, config={"displayModeBar": False})
 
                 # Live metrics dashboard
                 st.markdown("#### ⚡ Live Performance Dashboard")

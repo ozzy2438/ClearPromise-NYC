@@ -17,3 +17,5 @@ streamlit==1.28.1
 
 # Development and testing
 pytest==8.0.0
+python-tds==1.13.0
+sqlalchemy-pytds
